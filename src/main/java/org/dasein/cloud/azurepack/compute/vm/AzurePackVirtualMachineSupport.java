@@ -1,3 +1,22 @@
+/**
+ * Copyright (C) 2009-2015 Dell, Inc
+ * See annotations for authorship information
+ *
+ * ====================================================================
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ====================================================================
+ */
+
 package org.dasein.cloud.azurepack.compute.vm;
 
 import org.apache.commons.collections.*;
@@ -5,9 +24,7 @@ import org.apache.http.client.methods.HttpUriRequest;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.azurepack.AzurePackCloud;
-import org.dasein.cloud.azurepack.compute.image.AzurePackImageCapabilities;
 import org.dasein.cloud.azurepack.compute.image.AzurePackImageRequests;
-import org.dasein.cloud.azurepack.compute.image.AzurePackImageSupport;
 import org.dasein.cloud.azurepack.compute.image.model.WAPTemplateModel;
 import org.dasein.cloud.azurepack.compute.image.model.WAPTemplatesModel;
 import org.dasein.cloud.azurepack.compute.vm.model.*;
@@ -16,11 +33,9 @@ import org.dasein.cloud.compute.*;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.network.RawAddress;
 import org.dasein.cloud.network.VLAN;
-import org.dasein.cloud.network.VlanCreateOptions;
 import org.dasein.cloud.util.requester.DriverToCoreMapper;
 import org.dasein.util.uom.storage.Megabyte;
 import org.dasein.util.uom.storage.Storage;
-import org.dasein.util.uom.storage.StorageUnit;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -65,6 +80,9 @@ public class AzurePackVirtualMachineSupport extends AbstractVMSupport<AzurePackC
         }
 
         String imageType = (String)image.getTag("type");
+        if (imageType.equalsIgnoreCase("vhd") && "default".equalsIgnoreCase(withLaunchOptions.getStandardProductId()))
+            throw new InternalException("Invalid product id for this type of image. Default product should be use only for templates");
+
         WAPVirtualMachineModel virtualMachineModel = new WAPVirtualMachineModel();
         virtualMachineModel.setName(withLaunchOptions.getFriendlyName());
         virtualMachineModel.setCloudId(provider.getContext().getRegionId());
@@ -159,7 +177,8 @@ public class AzurePackVirtualMachineSupport extends AbstractVMSupport<AzurePackC
 
         List<DataCenter> dataCenters = new ArrayList(IteratorUtils.toList(this.provider.getDataCenterServices().listDataCenters(this.provider.getContext().getRegionId()).iterator()));
 
-        HttpUriRequest getVMRequest = new AzurePackVMRequests(provider).getVirtualMachine(vmId, dataCenters.get(0).getProviderDataCenterId()).build();
+        HttpUriRequest getVMRequest = new AzurePackVMRequests(provider)
+                .getVirtualMachine(vmId, dataCenters.get(0).getProviderDataCenterId()).build();
 
         return new AzurePackRequester(this.provider, getVMRequest).withJsonProcessor(new DriverToCoreMapper<WAPVirtualMachineModel, VirtualMachine>() {
             @Override
@@ -191,8 +210,15 @@ public class AzurePackVirtualMachineSupport extends AbstractVMSupport<AzurePackC
     }
 
     @Override
-    public @Nonnull Iterable<VirtualMachineProduct> listProducts(@Nonnull final String machineImageId) throws InternalException, CloudException {
-        return listProducts(machineImageId, VirtualMachineProductFilterOptions.getInstance());
+    public @Nonnull Iterable<VirtualMachineProduct> listAllProducts() throws InternalException, CloudException{
+        List<VirtualMachineProduct> products = IteratorUtils.toList(listProducts(VirtualMachineProductFilterOptions.getInstance()).iterator());
+
+        VirtualMachineProduct defaultProduct = new VirtualMachineProduct();
+        defaultProduct.setName("Default");
+        defaultProduct.setProviderProductId("default");
+        defaultProduct.setDescription("Default");
+        products.add(defaultProduct);
+        return products;
     }
 
     @Override
@@ -234,8 +260,7 @@ public class AzurePackVirtualMachineSupport extends AbstractVMSupport<AzurePackC
         return products;
     }
 
-    @Override
-    public @Nonnull Iterable<VirtualMachineProduct> listProducts(@Nonnull final VirtualMachineProductFilterOptions options, @Nullable Architecture architecture) throws InternalException, CloudException {
+    private @Nonnull Iterable<VirtualMachineProduct> listProducts(@Nonnull final VirtualMachineProductFilterOptions options) throws InternalException, CloudException {
         HttpUriRequest listProfilesRequest = new AzurePackVMRequests(provider).listHardwareProfiles().build();
 
         WAPHardwareProfilesModel hardwareProfilesModel = new AzurePackRequester(provider, listProfilesRequest).withJsonProcessor(WAPHardwareProfilesModel.class).execute();
@@ -355,6 +380,18 @@ public class AzurePackVirtualMachineSupport extends AbstractVMSupport<AzurePackC
     private VmState getVmState(String state){
         try {
             if("Update Failed".equalsIgnoreCase(state)) {
+                return VmState.ERROR;
+            }
+
+            if("Creation Failed".equalsIgnoreCase(state)) {
+                return VmState.ERROR;
+            }
+
+            if("Customization Failed".equalsIgnoreCase(state)) {
+                return VmState.ERROR;
+            }
+
+            if("Missing".equalsIgnoreCase(state)) {
                 return VmState.ERROR;
             }
 

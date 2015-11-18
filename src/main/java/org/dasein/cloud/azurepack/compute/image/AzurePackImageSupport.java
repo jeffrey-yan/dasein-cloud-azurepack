@@ -1,3 +1,22 @@
+/**
+ * Copyright (C) 2009-2015 Dell, Inc
+ * See annotations for authorship information
+ *
+ * ====================================================================
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ====================================================================
+ */
+
 package org.dasein.cloud.azurepack.compute.image;
 
 import org.apache.commons.collections.Closure;
@@ -13,12 +32,18 @@ import org.dasein.cloud.azurepack.compute.image.model.WAPTemplatesModel;
 import org.dasein.cloud.azurepack.compute.image.model.WAPVhdModel;
 import org.dasein.cloud.azurepack.compute.image.model.WAPVhdsModel;
 import org.dasein.cloud.azurepack.utils.AzurePackRequester;
-import org.dasein.cloud.compute.*;
+import org.dasein.cloud.compute.AbstractImageSupport;
+import org.dasein.cloud.compute.Architecture;
+import org.dasein.cloud.compute.ImageCapabilities;
+import org.dasein.cloud.compute.ImageClass;
+import org.dasein.cloud.compute.ImageFilterOptions;
+import org.dasein.cloud.compute.MachineImage;
+import org.dasein.cloud.compute.MachineImageState;
+import org.dasein.cloud.compute.Platform;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -171,7 +196,7 @@ public class AzurePackImageSupport extends AbstractImageSupport<AzurePackCloud> 
                             ImageClass.MACHINE,
                             MachineImageState.ACTIVE,
                             templateModel.getName(),
-                            templateModel.getDescription(),
+                            templateModel.getDescription() != null ? templateModel.getDescription() : templateModel.getName(),
                             Architecture.I64,
                             templateModel.getOperatingSystemInstance().getOsType().toLowerCase().contains("windows") ? Platform.WINDOWS : Platform.UNIX);
                     image.setTag("type", "template");
@@ -203,7 +228,7 @@ public class AzurePackImageSupport extends AbstractImageSupport<AzurePackCloud> 
                             ImageClass.MACHINE,
                             MachineImageState.ACTIVE,
                             vhd.getName(),
-                            vhd.getDescription(),
+                            vhd.getDescription() != null ? vhd.getDescription() : vhd.getName(),
                             Architecture.I64,
                             vhd.getOperatingSystemInstance().getOsType().toLowerCase().contains("windows") ? Platform.WINDOWS : Platform.UNIX);
                     image.setTag("type", "vhd");
